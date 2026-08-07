@@ -1,0 +1,260 @@
+// ============================================================
+// schema.prisma
+// ERP/SaaS - Gestión de Pedidos e Inventario (Distribuidora B2B)
+// Stack: NestJS + Prisma + PostgreSQL
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  SELLER
+}
+
+enum OrderStatus {
+  PENDING     // Pedido creado, no despachado
+  CONFIRMED   // Confirmado por admin
+  DISPATCHED  // Salió de depósito
+  DELIVERED   // Entregado al cliente
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+}
+
+// ------------------------------------------------------------
+// USERS
+// ------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  role         UserRole @default(SELLER)
+  isActive     Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[] @relation("SellerOrders")
+
+  @@map("users")
+}
+
+// ------------------------------------------------------------
+// CUSTOMERS
+// ------------------------------------------------------------
+
+model Customer {
+  id           String  @id @default(uuid())
+  businessName String  @map("business_name")
+  cuit         String  @unique
+  address      String
+  phone        String?
+
+  // Decimal, nunca Float, para valores monetarios
+  creditLimit Decimal @default(0) @map("credit_limit") @db.Decimal(12, 2)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  priceListId String    @map("price_list_id")
+  priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Restrict)
+
+  orders Order[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([priceListId])
+  @@map("customers")
+}
+
+// ------------------------------------------------------------
+// PRICE LISTS
+// ------------------------------------------------------------
+
+model PriceList {
+  id   String @id @default(uuid())
+  name String @unique // ej: "Lista General", "Lista Cadenas"
+
+  isActive Boolean @default(true) @map("is_active")
+
+  customers Customer[]
+  items     PriceListItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("price_lists")
+}
+
+// Precio de cada producto DENTRO de cada lista.
+// Sin esta tabla no hay forma de resolver "¿a cuánto le vendo esto a este cliente?"
+model PriceListItem {
+  id String @id @default(uuid())
+
+  priceListId String    @map("price_list_id")
+  priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  price Decimal @db.Decimal(12, 2)
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([priceListId, productId]) // un producto no puede tener 2 precios en la misma lista
+  @@index([productId])
+  @@map("price_list_items")
+}
+
+// ------------------------------------------------------------
+// PRODUCTS
+// ------------------------------------------------------------
+
+model Product {
+  id  String @id @default(uuid())
+  sku String @unique
+  name String
+
+  unit String @map("unit") // ej: "KG", "UNIDAD", "CAJA"
+
+  costPrice Decimal @map("cost_price") @db.Decimal(12, 2) // referencia para margen
+  basePrice Decimal @map("base_price") @db.Decimal(12, 2) // fallback si no hay PriceListItem
+
+  isActive Boolean @default(true) @map("is_active")
+
+  batches    ProductBatch[]
+  priceItems PriceListItem[]
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("products")
+}
+
+// ------------------------------------------------------------
+// PRODUCT BATCHES (lotes en depósito)
+// ------------------------------------------------------------
+
+model ProductBatch {
+  id String @id @default(uuid())
+
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  batchNumber      String   @map("batch_number")
+  expirationDate   DateTime @map("expiration_date")
+  quantityReceived Decimal  @map("quantity_received") @db.Decimal(12, 3)
+  quantityAvailable Decimal @map("quantity_available") @db.Decimal(12, 3)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  allocations OrderItemBatchAllocation[]
+
+  // El índice compuesto es clave: así el query FEFO
+  // (WHERE productId = X AND quantityAvailable > 0 ORDER BY expirationDate ASC)
+  // usa index scan en vez de seq scan.
+  @@index([productId, expirationDate])
+  @@unique([productId, batchNumber])
+  @@map("product_batches")
+}
+
+// ------------------------------------------------------------
+// ORDERS
+// ------------------------------------------------------------
+
+model Order {
+  id String @id @default(uuid())
+
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  sellerId String @map("seller_id")
+  seller   User   @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Restrict)
+
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+
+  // Totales calculados y persistidos al momento de crear el pedido
+  // (no se recalculan dinámicamente, así el histórico no cambia si el precio cambia después)
+  totalAmount Decimal @map("total_amount") @db.Decimal(12, 2)
+  totalCost   Decimal @map("total_cost") @db.Decimal(12, 2) // suma de costPrice al momento de venta
+  grossMargin Decimal @map("gross_margin") @db.Decimal(12, 2) // totalAmount - totalCost
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Compuesto: cubre "historial de pedidos por cliente" (prefijo izquierdo)
+  // Y el chequeo de límite de crédito, que corre en cada creación de pedido:
+  // SUM(totalAmount) WHERE customerId = X AND paymentStatus = 'PENDING'
+  @@index([customerId, paymentStatus])
+  @@index([paymentStatus]) // para vistas admin de cta. cte. pendiente sin filtrar por cliente
+  @@index([sellerId])      // dashboard de ventas por vendedor
+  @@index([status])        // cola operativa: pedidos a confirmar/despachar
+  @@map("orders")
+}
+
+// ------------------------------------------------------------
+// ORDER ITEMS (línea comercial del pedido)
+// ------------------------------------------------------------
+
+model OrderItem {
+  id String @id @default(uuid())
+
+  orderId String @map("order_id")
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  quantity     Decimal @db.Decimal(12, 3) // cantidad total pedida de este producto
+  unitPrice    Decimal @map("unit_price") @db.Decimal(12, 2) // precio cobrado (según PriceList del cliente)
+  unitCost     Decimal @map("unit_cost") @db.Decimal(12, 2) // costPrice congelado al momento de venta
+  subtotal     Decimal @db.Decimal(12, 2) // quantity * unitPrice
+
+  // Detalle real de qué lotes se usaron para cubrir esta línea (FEFO puede partir entre varios lotes)
+  batchAllocations OrderItemBatchAllocation[]
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// Tabla puente: un OrderItem puede consumir stock de MÁS DE UN lote
+// (ej: pide 100kg, el lote que vence primero solo tiene 60kg disponibles → se parte en 2 lotes).
+// Sin esto, FEFO con cantidades grandes no es representable.
+model OrderItemBatchAllocation {
+  id String @id @default(uuid())
+
+  orderItemId String    @map("order_item_id")
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  batchId String       @map("batch_id")
+  batch   ProductBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  quantity Decimal @db.Decimal(12, 3) // cuánto se descontó de ESE lote puntual
+
+  @@index([orderItemId])
+  @@index([batchId])
+  @@map("order_item_batch_allocations")
+}
