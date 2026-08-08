@@ -1,4 +1,4 @@
-import { Post, Body, Controller, Get } from '@nestjs/common';
+import { Post, Body, Controller, Get, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -11,5 +11,11 @@ export class UsersController {
   @ResponseMessage('Usuario creado exitosamente')
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
+  }
+
+  @Get()
+  @ResponseMessage('Usuarios encontrados exitosamente')
+  findAll(@Query('includeInactive') includeInactive?: string) {
+    return this.usersService.findAll(includeInactive === 'true');
   }
 }

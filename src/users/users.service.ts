@@ -32,4 +32,13 @@ export class UsersService {
 
     return new UserResponseDto(user);
   }
+
+  async findAll(includeInactive = false): Promise<UserResponseDto[]> {
+    const users = await this.prisma.user.findMany({
+      where: includeInactive ? undefined : { isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return users.map((user) => new UserResponseDto(user));
+  }
 }
