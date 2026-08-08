@@ -8,7 +8,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { Transform, TransformFnParams } from 'class-transformer';
-import { UserRole } from '../../generated/prisma';
+import { UserRole } from '../../generated/prisma/client';
 
 export class CreateUserDto {
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
