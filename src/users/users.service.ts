@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/response-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 const SALT_ROUNDS = 10;
 
@@ -15,9 +16,7 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
+    const existing = await this.findByEmail(dto.email);
 
     if (existing) {
       throw new ConflictException('Ya existe un usuario con ese email');
@@ -60,4 +59,26 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  async update(id: string, dto: UpdateUserDto): Promise<UserResponseDto> {
+    await this.findOne(id);
+
+    if (dto.email) {
+      const existing = await this.findByEmail(dto.email);
+      if (existing && existing.id !== id) {
+        throw new ConflictException('Ya existe un usuario con ese email');
+      }
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: {
+        fullName: dto.fullName,
+        email: dto.email,
+        role: dto.role,
+        isActive: dto.isActive,
+      },
+    });
+
+    return new UserResponseDto(user);
+  }
 }
