@@ -1,4 +1,12 @@
-import { Post, Body, Controller, Get, Query } from '@nestjs/common';
+import {
+  Post,
+  Body,
+  Controller,
+  Get,
+  Query,
+  Param,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -17,5 +25,11 @@ export class UsersController {
   @ResponseMessage('Usuarios encontrados exitosamente')
   findAll(@Query('includeInactive') includeInactive?: string) {
     return this.usersService.findAll(includeInactive === 'true');
+  }
+
+  @Get(':id')
+  @ResponseMessage('Usuario encontrado exitosamente')
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.findOne(id);
   }
 }
