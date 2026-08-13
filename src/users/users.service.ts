@@ -100,4 +100,15 @@ export class UsersService {
 
     return new UserResponseDto(user);
   }
+
+  async reactivate(id: string): Promise<UserResponseDto> {
+    await this.findOne(id);
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { isActive: true },
+    });
+
+    return new UserResponseDto(user);
+  }
 }

@@ -56,4 +56,11 @@ export class UsersController {
   deactivate(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.deactivate(id);
   }
+
+
+  @Patch(':id/reactivate')
+  @ResponseMessage('Usuario reactivado exitosamente')
+  reactivate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.reactivate(id);
+  }
 }
