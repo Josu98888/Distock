@@ -89,4 +89,15 @@ export class UsersService {
       data: { passwordHash: hashedPassword },
     });
   }
+
+  async deactivate(id: string): Promise<UserResponseDto> {
+    await this.findOne(id);
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    return new UserResponseDto(user);
+  }
 }

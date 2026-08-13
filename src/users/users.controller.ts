@@ -50,4 +50,10 @@ export class UsersController {
   ) {
     return this.usersService.updatePassword(id, updatePasswordDto.password);
   }
+
+  @Patch(':id/deactivate')
+  @ResponseMessage('Usuario desactivado exitosamente')
+  deactivate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.deactivate(id);
+  }
 }
