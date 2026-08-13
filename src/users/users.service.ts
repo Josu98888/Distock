@@ -75,10 +75,18 @@ export class UsersService {
         fullName: dto.fullName,
         email: dto.email,
         role: dto.role,
-        isActive: dto.isActive,
       },
     });
 
     return new UserResponseDto(user);
+  }
+
+  async updatePassword(id: string, newPassword: string): Promise<void> {
+    await this.findOne(id);
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await this.prisma.user.update({
+      where: { id },
+      data: { passwordHash: hashedPassword },
+    });
   }
 }

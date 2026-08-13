@@ -5,7 +5,5 @@ import { CreateUserDto } from './create-user.dto';
 export class UpdateUserDto extends PartialType(
   OmitType(CreateUserDto, ['password'] as const),
 ) {
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
+  
 }
