@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -6,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login-user.dto';
 import { UserResponseDto } from '@/users/dto/response-user.dto';
-import { UserRole } from '@/generated/prisma/client';
+import { UserRole } from '../generated/prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -39,6 +43,29 @@ export class AuthService {
       ...tokens,
       user: new UserResponseDto(user),
     };
+  }
+
+  /**
+   * Refresca los tokens de acceso y refresco de un usuario valido.
+   */
+  async refresh(userId: string, refreshToken: string) {
+    const user = await this.usersService.findByIdWithRefreshToken(userId);
+
+    if (!user || !user.isActive || !user.hashedRefreshToken) {
+      throw new ForbiddenException('Acceso denegado');
+    }
+
+    const refreshTokenMatches = await bcrypt.compare(
+      this.resumir(refreshToken),
+      user.hashedRefreshToken,
+    );
+
+    if (!refreshTokenMatches) {
+      await this.usersService.updateRefreshToken(userId, null);
+      throw new ForbiddenException('Acceso denegado');
+    }
+
+    return this.generarTokens(user.id, user.email, user.role);
   }
 
   /**

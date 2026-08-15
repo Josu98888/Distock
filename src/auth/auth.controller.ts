@@ -1,8 +1,18 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-user.dto';
 import { Public } from './decorators/public.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
+import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { RawRefreshToken } from './decorators/refresh-token.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -14,5 +24,16 @@ export class AuthController {
   @ResponseMessage('Inicio de sesión exitoso')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Public()
+  @UseGuards(RefreshTokenGuard)
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  refresh(
+    @CurrentUser('sub') userId: string,
+    @RawRefreshToken() rawRefreshToken: string,
+  ) {
+    return this.authService.refresh(userId, rawRefreshToken);
   }
 }
