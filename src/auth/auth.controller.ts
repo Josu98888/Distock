@@ -30,10 +30,18 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Tokens renovados exitosamente')
   refresh(
     @CurrentUser('sub') userId: string,
     @RawRefreshToken() rawRefreshToken: string,
   ) {
     return this.authService.refresh(userId, rawRefreshToken);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Sesión cerrada exitosamente')
+  logout(@CurrentUser('sub') userId: string) {
+    return this.authService.logout(userId);
   }
 }

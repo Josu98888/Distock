@@ -69,6 +69,13 @@ export class AuthService {
   }
 
   /**
+   * Invalida el refresh token del usuario.
+   */
+  async logout(userId: string): Promise<void> {
+    await this.usersService.updateRefreshToken(userId, null);
+  }
+
+  /**
    * Firma el par de tokens y guarda el hash del refresh en la base.
    */
   private async generarTokens(userId: string, email: string, role: UserRole) {
