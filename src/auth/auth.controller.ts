@@ -1,4 +1,18 @@
-import { Controller } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login-user.dto';
+import { Public } from './decorators/public.decorator';
+import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 
 @Controller('auth')
-export class AuthController {}
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Inicio de sesión exitoso')
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
+  }
+}
