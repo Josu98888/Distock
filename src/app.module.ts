@@ -10,6 +10,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './auth/guards/auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -17,6 +18,10 @@ import { RolesGuard } from './auth/guards/roles.guard';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([
+      { name: 'short', ttl: 1000, limit: 3 }, // 3 requests por segundo
+      { name: 'long', ttl: 60000, limit: 100 }, // 100 por minuto
+    ]),
     PrismaModule,
     UsersModule,
     AuthModule,
@@ -24,14 +29,15 @@ import { RolesGuard } from './auth/guards/roles.guard';
   controllers: [AppController],
   providers: [
     AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard }, // 1° ¿no estas abusando?
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
-    }, // 1º: ¿Tenés un token válido? (pone el user en el request)
+    }, // 2º: ¿Tenés un token válido? (pone el user en el request)
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
-    }, // 2º: ¿Tenés el rol necesario? (lee el user del request)
+    }, // 3º: ¿Tenés el rol necesario? (lee el user del request)
 
     // --- TUS HERRAMIENTAS PERSONALIZADAS ---
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },

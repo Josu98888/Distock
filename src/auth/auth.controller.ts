@@ -13,12 +13,14 @@ import { ResponseMessage } from '@/common/decorators/response-message.decorator'
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { RawRefreshToken } from './decorators/refresh-token.decorator';
+import { seconds, Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ short: { limit: 5, ttl: seconds(60) } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Inicio de sesión exitoso')
@@ -27,6 +29,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ short: { limit: 10, ttl: seconds(60) } })
   @UseGuards(RefreshTokenGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
