@@ -4,19 +4,27 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Product } from '../generated/prisma/client';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { Prisma } from '../generated/prisma/client'; // Necesitamos esto para Prisma.PrismaClientKnownRequestError
+import { ProductResponseDto } from './dto/product-response.dto';
+
+// Type Guard para tipar estrictamente el error sin usar 'any'
+interface PrismaError {
+  code: string;
+}
+
+function isPrismaError(error: unknown): error is PrismaError {
+  return typeof error === 'object' && error !== null && 'code' in error;
+}
 
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateProductDto): Promise<Product> {
+  async create(dto: CreateProductDto): Promise<ProductResponseDto> {
     await this.assertSkuIsFree(dto.sku);
 
-    return this.prisma.product.create({
+    const product = await this.prisma.product.create({
       data: {
         sku: dto.sku,
         name: dto.name,
@@ -25,43 +33,46 @@ export class ProductsService {
         basePrice: dto.basePrice,
       },
     });
+
+    return new ProductResponseDto(product);
   }
 
-  async findAll(includeInactive = false): Promise<Product[]> {
-    return this.prisma.product.findMany({
+  async findAll(includeInactive = false): Promise<ProductResponseDto[]> {
+    const products = await this.prisma.product.findMany({
       where: includeInactive ? undefined : { isActive: true },
       orderBy: { name: 'asc' },
     });
+
+    return products.map((product) => new ProductResponseDto(product));
   }
 
-  async findOne(id: string): Promise<Product> {
+  async findOne(id: string): Promise<ProductResponseDto> {
     const product = await this.prisma.product.findUnique({ where: { id } });
 
     if (!product) {
       throw new NotFoundException(`Producto con id ${id} no encontrado`);
     }
 
-    return product;
+    return new ProductResponseDto(product);
   }
 
-  async findBySku(sku: string): Promise<Product> {
+  async findBySku(sku: string): Promise<ProductResponseDto> {
     const product = await this.prisma.product.findUnique({ where: { sku } });
 
     if (!product) {
       throw new NotFoundException(`Producto con SKU ${sku} no encontrado`);
     }
 
-    return product;
+    return new ProductResponseDto(product);
   }
 
-  async update(id: string, dto: UpdateProductDto): Promise<Product> {
+  async update(id: string, dto: UpdateProductDto): Promise<ProductResponseDto> {
     if (dto.sku) {
-      // Necesitamos verificar esto antes para no intentar actualizar con un SKU duplicado
       await this.assertSkuIsFree(dto.sku, id);
     }
 
     try {
-      return await this.prisma.product.update({
+      const product = await this.prisma.product.update({
         where: { id },
         data: {
           sku: dto.sku,
@@ -71,35 +82,33 @@ export class ProductsService {
           basePrice: dto.basePrice !== undefined ? dto.basePrice : undefined,
         },
       });
-    } catch (error) {
-      this.handlePrismaRecordNotFound(error, id);
-      throw error; // Si no es P2025, relanza el error original
-    }
-  }
-
-  /**
-   * Baja lógica. No se borra físicamente: el producto está referenciado por
-   * lotes, items de pedido y listas de precios, y el histórico no debe
-   * romperse (el schema usa onDelete: Restrict en esas relaciones).
-   */
-  async deactivate(id: string): Promise<Product> {
-    try {
-      return await this.prisma.product.update({
-        where: { id },
-        data: { isActive: false },
-      });
+      return new ProductResponseDto(product);
     } catch (error) {
       this.handlePrismaRecordNotFound(error, id);
       throw error;
     }
   }
 
-  async reactivate(id: string): Promise<Product> {
+  async deactivate(id: string): Promise<ProductResponseDto> {
     try {
-      return await this.prisma.product.update({
+      const product = await this.prisma.product.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      return new ProductResponseDto(product);
+    } catch (error) {
+      this.handlePrismaRecordNotFound(error, id);
+      throw error;
+    }
+  }
+
+  async reactivate(id: string): Promise<ProductResponseDto> {
+    try {
+      const product = await this.prisma.product.update({
         where: { id },
         data: { isActive: true },
       });
+      return new ProductResponseDto(product);
     } catch (error) {
       this.handlePrismaRecordNotFound(error, id);
       throw error;
@@ -112,20 +121,15 @@ export class ProductsService {
   ): Promise<void> {
     const existing = await this.prisma.product.findUnique({ where: { sku } });
 
+    // Nota: usando estricta igualdad (===) para respetar las mejores prácticas
     if (existing && existing.id !== excludeId) {
       throw new ConflictException(`Ya existe un producto con el SKU ${sku}`);
     }
   }
 
-  /**
-   * Intercepta el error P2025 de Prisma (Record to update not found).
-   * Centraliza la conversión de errores de base de datos a excepciones HTTP.
-   */
-  private handlePrismaRecordNotFound(error: any, id: string): void {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+  private handlePrismaRecordNotFound(error: unknown, id: string): void {
+    // Usamos el Type Guard para evaluar con total seguridad y 0 dependencias externas
+    if (isPrismaError(error) && error.code === 'P2025') {
       throw new NotFoundException(`Producto con id ${id} no encontrado`);
     }
   }
