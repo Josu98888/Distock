@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '@/prisma/prisma.module';
+import { PriceListService } from './price-lists.service';
 
 /**
  * `PriceList` es el Aggregate Root: los `PriceListItem` no tienen módulo propio,
@@ -10,7 +11,7 @@ import { PrismaModule } from '@/prisma/prisma.module';
 @Module({
   imports: [PrismaModule],
   controllers: [],
-  providers: [],
-  exports: [],
+  providers: [PriceListService],
+  exports: [PriceListService],
 })
 export class PriceListsModule {}
