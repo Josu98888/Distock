@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { ProductBatchesService } from './product-batches.service';
+import { ProductBatchesController } from './product-batches.controller';
 
-/**
- * Todavía sin controller: falta exponer los endpoints HTTP de lotes.
- */
 @Module({
   imports: [PrismaModule],
+  controllers: [ProductBatchesController],
   providers: [ProductBatchesService],
   exports: [ProductBatchesService],
 })
