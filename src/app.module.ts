@@ -5,6 +5,9 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
+import { ProductBatchesModule } from './product-batches/product-batches.module';
+import { CustomersModule } from './customers/customers.module';
+import { PriceListsModule } from './price-lists/price-lists.module';
 import { APP_INTERCEPTOR, APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -26,6 +29,9 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     PrismaModule,
     UsersModule,
     ProductsModule,
+    ProductBatchesModule,
+    CustomersModule,
+    PriceListsModule,
     AuthModule,
   ],
   controllers: [AppController],
