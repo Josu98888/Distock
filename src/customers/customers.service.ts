@@ -35,6 +35,7 @@ export class CustomersService {
           creditLimit: dto.creditLimit,
           priceListId: dto.priceListId,
         },
+        include: { priceList: true },
       });
 
       return new CustomerResponseDto(customer);
@@ -48,13 +49,17 @@ export class CustomersService {
     const customers = await this.prisma.customer.findMany({
       where: includeInactive ? undefined : { isActive: true },
       orderBy: { businessName: 'asc' },
+      include: { priceList: true },
     });
 
     return customers.map((customer) => new CustomerResponseDto(customer));
   }
 
   async findOne(id: string): Promise<CustomerResponseDto> {
-    const customer = await this.prisma.customer.findUnique({ where: { id } });
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: { priceList: true },
+    });
 
     if (!customer) {
       throw new NotFoundException(`Cliente con id ${id} no encontrado`);
@@ -64,7 +69,10 @@ export class CustomersService {
   }
 
   async findByCuit(cuit: string): Promise<CustomerResponseDto> {
-    const customer = await this.prisma.customer.findUnique({ where: { cuit } });
+    const customer = await this.prisma.customer.findUnique({
+      where: { cuit },
+      include: { priceList: true },
+    });
 
     if (!customer) {
       throw new NotFoundException(`Cliente con CUIT ${cuit} no encontrado`);
@@ -93,6 +101,7 @@ export class CustomersService {
             dto.creditLimit !== undefined ? dto.creditLimit : undefined,
           priceListId: dto.priceListId,
         },
+        include: { priceList: true },
       });
       return new CustomerResponseDto(customer);
     } catch (error) {
@@ -107,6 +116,7 @@ export class CustomersService {
       const customer = await this.prisma.customer.update({
         where: { id },
         data: { isActive: false },
+        include: { priceList: true },
       });
       return new CustomerResponseDto(customer);
     } catch (error) {
@@ -120,6 +130,7 @@ export class CustomersService {
       const customer = await this.prisma.customer.update({
         where: { id },
         data: { isActive: true },
+        include: { priceList: true },
       });
       return new CustomerResponseDto(customer);
     } catch (error) {
