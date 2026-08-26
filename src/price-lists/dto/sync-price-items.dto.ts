@@ -8,6 +8,10 @@ import { PriceListItemInputDto } from './price-list-item-input.dto';
  * Enviar items: [] vacía todos los precios de la lista.
  */
 export class SyncPriceItemsDto {
+  /**
+   * Estado completo de precios de la lista. Enviar `[]` vacía todos los precios.
+   * @example [{ "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "price": "199.99" }]
+   */
   @IsArray({ message: 'items debe ser un arreglo' })
   @ArrayMinSize(0)
   @ValidateNested({ each: true })
