@@ -10,6 +10,7 @@ import {
   ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -22,6 +23,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 
 
+@ApiTags('Usuarios')
 @Controller('users')
 @UseGuards(RolesGuard)
 export class UsersController {
@@ -30,6 +32,23 @@ export class UsersController {
   @Post()
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Usuario creado exitosamente')
+  @ApiOperation({ summary: 'Crea un nuevo usuario' })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuario creado exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Los datos enviados no son válidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN)',
+  })
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
@@ -37,6 +56,19 @@ export class UsersController {
   @Get()
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Usuarios encontrados exitosamente')
+  @ApiOperation({ summary: 'Lista los usuarios' })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuarios encontrados exitosamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN)',
+  })
   findAll(@Query('includeInactive') includeInactive?: string) {
     return this.usersService.findAll(includeInactive === 'true');
   }
@@ -48,6 +80,23 @@ export class UsersController {
    */
   @Get(':id')
   @ResponseMessage('Usuario encontrado exitosamente')
+  @ApiOperation({ summary: 'Busca un usuario por su id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario encontrado exitosamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Un SELLER intenta acceder a un usuario que no es el propio',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No existe un usuario con ese id',
+  })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: JwtPayload,
@@ -59,6 +108,27 @@ export class UsersController {
   @Patch(':id')
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Usuario actualizado exitosamente')
+  @ApiOperation({ summary: 'Actualiza los datos de un usuario' })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario actualizado exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Los datos enviados no son válidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No existe un usuario con ese id',
+  })
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
   }
@@ -69,6 +139,27 @@ export class UsersController {
    */
   @Patch(':id/password')
   @ResponseMessage('Contraseña actualizada exitosamente')
+  @ApiOperation({ summary: 'Actualiza la contraseña de un usuario' })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña actualizada exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Los datos enviados no son válidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Un SELLER intenta cambiar la contraseña de otro usuario',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No existe un usuario con ese id',
+  })
   updatePassword(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePasswordDto,
@@ -81,6 +172,23 @@ export class UsersController {
   @Patch(':id/deactivate')
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Usuario desactivado exitosamente')
+  @ApiOperation({ summary: 'Desactiva un usuario' })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario desactivado exitosamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No existe un usuario con ese id',
+  })
   deactivate(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.deactivate(id);
   }
@@ -88,6 +196,23 @@ export class UsersController {
   @Patch(':id/reactivate')
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Usuario reactivado exitosamente')
+  @ApiOperation({ summary: 'Reactiva un usuario' })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario reactivado exitosamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No existe un usuario con ese id',
+  })
   reactivate(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.reactivate(id);
   }
