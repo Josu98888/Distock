@@ -7,7 +7,10 @@ import { OrderStatus, PaymentStatus } from '../../generated/prisma/client';
  * eso se define una sola vez al crear el pedido.
  */
 export class UpdateOrderDto {
-  /** Depósito/logística: CONFIRMED, DISPATCHED, DELIVERED (o CANCELLED). */
+  /**
+   * Depósito/logística: CONFIRMED, DISPATCHED, DELIVERED (o CANCELLED).
+   * @example "CONFIRMED"
+   */
   @IsOptional()
   @IsEnum(OrderStatus, {
     message:
@@ -15,7 +18,10 @@ export class UpdateOrderDto {
   })
   status?: OrderStatus;
 
-  /** Tesorería: PAID o PARTIALLY_PAID. */
+  /**
+   * Tesorería: PAID o PARTIALLY_PAID.
+   * @example "PAID"
+   */
   @IsOptional()
   @IsEnum(PaymentStatus, {
     message: 'El paymentStatus debe ser uno de: PENDING, PAID, PARTIALLY_PAID',

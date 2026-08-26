@@ -10,6 +10,7 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -20,6 +21,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 
+@ApiTags('Pedidos')
 @Controller('orders')
 @UseGuards(RolesGuard)
 export class OrdersController {
@@ -28,6 +30,23 @@ export class OrdersController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   @ResponseMessage('Pedido creado exitosamente')
+  @ApiOperation({ summary: 'Crea un nuevo pedido' })
+  @ApiResponse({
+    status: 201,
+    description: 'Pedido creado exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Los datos enviados no son válidos o no hay stock suficiente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+  })
   create(
     @CurrentUser('sub') sellerId: string,
     @Body() createOrderDto: CreateOrderDto,
@@ -38,6 +57,19 @@ export class OrdersController {
   @Get()
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   @ResponseMessage('Pedidos encontrados exitosamente')
+  @ApiOperation({ summary: 'Lista los pedidos' })
+  @ApiResponse({
+    status: 200,
+    description: 'Pedidos encontrados exitosamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+  })
   findAll(
     @CurrentUser() currentUser: JwtPayload,
     @Query('sellerId') sellerId?: string,
@@ -51,6 +83,23 @@ export class OrdersController {
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   @ResponseMessage('Pedido encontrado exitosamente')
+  @ApiOperation({ summary: 'Busca un pedido por su id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Pedido encontrado exitosamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No existe un pedido con ese id',
+  })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.getOrderById(id);
   }
@@ -59,6 +108,27 @@ export class OrdersController {
   @Patch(':id/status')
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Estado del pedido actualizado exitosamente')
+  @ApiOperation({ summary: 'Actualiza el estado logístico de un pedido' })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado del pedido actualizado exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'El campo status es requerido o la transición no es válida',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No existe un pedido con ese id',
+  })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderDto,
@@ -74,6 +144,27 @@ export class OrdersController {
   @Patch(':id/payment-status')
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Estado de pago del pedido actualizado exitosamente')
+  @ApiOperation({ summary: 'Actualiza el estado de pago de un pedido' })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado de pago del pedido actualizado exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'El campo paymentStatus es requerido o no es válido',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario no tiene el rol requerido (ADMIN)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No existe un pedido con ese id',
+  })
   updatePaymentStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderDto,
