@@ -11,6 +11,10 @@ import { Transform, TransformFnParams } from 'class-transformer';
 import { UserRole } from '../../generated/prisma/client';
 
 export class CreateUserDto {
+  /**
+   * Nombre completo del usuario.
+   * @example "Josué Aquino"
+   */
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'El nombre completo es requerido' })
   @MinLength(4, { message: 'El nombre debe tener al menos 4 caracteres' })
@@ -20,6 +24,10 @@ export class CreateUserDto {
   )
   fullName!: string;
 
+  /**
+   * Correo electrónico único del usuario.
+   * @example "usuario@example.com"
+   */
   @IsString({ message: 'El email debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'El email es requerido' })
   @IsEmail({}, { message: 'El email no tiene un formato válido' })
@@ -29,6 +37,10 @@ export class CreateUserDto {
   )
   email!: string;
 
+  /**
+   * Contraseña del usuario. Debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial.
+   * @example "Passw0rd!"
+   */
   @IsString()
   @MaxLength(72, {
     message: 'La contraseña no puede superar los 72 caracteres',
@@ -48,6 +60,10 @@ export class CreateUserDto {
   )
   password!: string;
 
+  /**
+   * Rol del usuario dentro del sistema.
+   * @example "SELLER"
+   */
   @IsNotEmpty({ message: 'El rol es requerido' })
   @IsEnum(UserRole, { message: 'El rol debe ser ADMIN o SELLER' })
   role!: UserRole;

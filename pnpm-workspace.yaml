@@ -1,5 +1,6 @@
 allowBuilds:
   '@prisma/engines': false
+  '@scarf/scarf': false
   '@swc/core': false
   bcrypt: false
   prisma: false

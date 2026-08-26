@@ -39,6 +39,10 @@ const toMoneyString = ({ value }: TransformFnParams): unknown => {
 };
 
 export class CreateCustomerDto {
+  /**
+   * Razón social del cliente.
+   * @example "DISTRIBUIDORA CENTRAL SRL"
+   */
   @IsNotEmpty({ message: 'La razón social es requerida' })
   @IsString({ message: 'La razón social debe ser una cadena de texto' })
   @MinLength(3, { message: 'La razón social debe tener al menos 3 caracteres' })
@@ -48,6 +52,10 @@ export class CreateCustomerDto {
   @Transform(trimUpper)
   businessName!: string;
 
+  /**
+   * CUIT del cliente, 11 dígitos (con o sin guiones).
+   * @example "30712345678"
+   */
   @IsNotEmpty({ message: 'El CUIT es requerido' })
   @IsString({ message: 'El CUIT debe ser una cadena de texto' })
   @Matches(CUIT_PATTERN, {
@@ -56,6 +64,10 @@ export class CreateCustomerDto {
   @Transform(toDigits)
   cuit!: string;
 
+  /**
+   * Dirección física del cliente.
+   * @example "Av. Siempre Viva 742"
+   */
   @IsNotEmpty({ message: 'La dirección es requerida' })
   @IsString({ message: 'La dirección debe ser una cadena de texto' })
   @MinLength(5, { message: 'La dirección debe tener al menos 5 caracteres' })
@@ -65,6 +77,10 @@ export class CreateCustomerDto {
   @Transform(trim)
   address!: string;
 
+  /**
+   * Teléfono de contacto del cliente.
+   * @example "+54 11 4444-5555"
+   */
   @IsOptional()
   @IsString({ message: 'El teléfono debe ser una cadena de texto' })
   @Matches(PHONE_PATTERN, {
@@ -74,8 +90,8 @@ export class CreateCustomerDto {
   phone?: string;
 
   /**
-   * Opcional: si no se envía, Prisma aplica el `@default(0)` del schema.
-   * Se maneja como string para no perder precisión en Decimal(12, 2).
+   * Límite de crédito del cliente. Opcional: si no se envía, Prisma aplica el `@default(0)` del schema.
+   * @example "150000.00"
    */
   @IsOptional()
   @IsString({
@@ -88,6 +104,10 @@ export class CreateCustomerDto {
   @Transform(toMoneyString)
   creditLimit?: string;
 
+  /**
+   * Identificador (UUID) de la lista de precios asignada al cliente.
+   * @example "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+   */
   @IsNotEmpty({ message: 'La lista de precios es requerida' })
   @IsUUID('4', { message: 'La lista de precios debe ser un UUID válido' })
   @Transform(trim)
