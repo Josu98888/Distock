@@ -19,6 +19,10 @@ const toQuantityString = ({ value }: TransformFnParams): unknown => {
  * El servicio valida que no supere `quantityReceived` del lote.
  */
 export class AdjustBatchStockDto {
+  /**
+   * Nuevo valor absoluto de `quantityAvailable`, hasta 3 decimales.
+   * @example "350.000"
+   */
   @IsNotEmpty({ message: 'La cantidad es requerida' })
   @IsString({
     message: 'La cantidad debe ser texto después de la transformación',

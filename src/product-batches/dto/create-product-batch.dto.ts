@@ -25,10 +25,18 @@ const toQuantityString = ({ value }: TransformFnParams): unknown => {
 };
 
 export class CreateProductBatchDto {
+  /**
+   * Identificador (UUID) del producto al que pertenece el lote.
+   * @example "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+   */
   @IsNotEmpty({ message: 'El producto es requerido' })
   @IsUUID('4', { message: 'El productId debe ser un UUID válido' })
   productId!: string;
 
+  /**
+   * Número identificatorio del lote.
+   * @example "LOTE-2026-001"
+   */
   @IsNotEmpty({ message: 'El número de lote es requerido' })
   @IsString({ message: 'El número de lote debe ser una cadena de texto' })
   @MaxLength(50, {
@@ -37,6 +45,10 @@ export class CreateProductBatchDto {
   @Transform(trimUpper)
   batchNumber!: string;
 
+  /**
+   * Fecha de vencimiento del lote (ISO 8601).
+   * @example "2026-12-31"
+   */
   @IsNotEmpty({ message: 'La fecha de vencimiento es requerida' })
   @IsDateString(
     {},
@@ -45,9 +57,10 @@ export class CreateProductBatchDto {
   expirationDate!: string;
 
   /**
-   * `quantityAvailable` no se pide en el alta: arranca igual a
-   * `quantityReceived` y se maneja por separado con las asignaciones
-   * (allocations) al despachar pedidos.
+   * Cantidad recibida del lote, hasta 3 decimales. `quantityAvailable` no
+   * se pide en el alta: arranca igual a `quantityReceived` y se maneja por
+   * separado con las asignaciones (allocations) al despachar pedidos.
+   * @example "500.000"
    */
   @IsNotEmpty({ message: 'La cantidad recibida es requerida' })
   @IsString({
