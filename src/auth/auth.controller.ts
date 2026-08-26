@@ -6,6 +6,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-user.dto';
 import { Public } from './decorators/public.decorator';
@@ -15,6 +16,7 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { RawRefreshToken } from './decorators/refresh-token.decorator';
 import { seconds, Throttle } from '@nestjs/throttler';
 
+@ApiTags('Autenticación')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -24,6 +26,19 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Inicio de sesión exitoso')
+  @ApiOperation({ summary: 'Inicia sesión con email y contraseña' })
+  @ApiResponse({
+    status: 200,
+    description: 'Inicio de sesión exitoso, devuelve los tokens y el usuario',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Los datos enviados no son válidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Credenciales inválidas o usuario inactivo',
+  })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
@@ -34,6 +49,15 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Tokens renovados exitosamente')
+  @ApiOperation({ summary: 'Renueva el par de tokens usando el refresh token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens renovados exitosamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token ausente, inválido o expirado',
+  })
   refresh(
     @CurrentUser('sub') userId: string,
     @RawRefreshToken() rawRefreshToken: string,
@@ -44,6 +68,15 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ResponseMessage('Sesión cerrada exitosamente')
+  @ApiOperation({ summary: 'Cierra la sesión del usuario autenticado' })
+  @ApiResponse({
+    status: 204,
+    description: 'Sesión cerrada exitosamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'El usuario no está autenticado',
+  })
   logout(@CurrentUser('sub') userId: string) {
     return this.authService.logout(userId);
   }
