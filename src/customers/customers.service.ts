@@ -40,6 +40,7 @@ export class CustomersService {
 
       return new CustomerResponseDto(customer);
     } catch (error) {
+      this.handlePrismaUniqueConstraintViolation(error, dto.cuit);
       this.handlePrismaForeignKeyViolation(error, dto.priceListId);
       throw error;
     }
@@ -106,6 +107,7 @@ export class CustomersService {
       return new CustomerResponseDto(customer);
     } catch (error) {
       this.handlePrismaRecordNotFound(error, id);
+      this.handlePrismaUniqueConstraintViolation(error, dto.cuit);
       this.handlePrismaForeignKeyViolation(error, dto.priceListId);
       throw error;
     }
@@ -155,6 +157,17 @@ export class CustomersService {
     // Usamos el Type Guard para evaluar con total seguridad y 0 dependencias externas
     if (isPrismaError(error) && error.code === 'P2025') {
       throw new NotFoundException(`Cliente con id ${id} no encontrado`);
+    }
+  }
+
+  private handlePrismaUniqueConstraintViolation(
+    error: unknown,
+    cuit?: string,
+  ): void {
+    if (isPrismaError(error) && error.code === 'P2002') {
+      throw new ConflictException(
+        `Ya existe un cliente con el CUIT ${cuit ?? ''}`.trim(),
+      );
     }
   }
 

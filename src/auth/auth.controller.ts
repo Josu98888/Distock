@@ -11,6 +11,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-user.dto';
 import { Public } from './decorators/public.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
+import { SkipResponseTransform } from '@/common/decorators/skip-response-transform.decorator';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { RawRefreshToken } from './decorators/refresh-token.decorator';
@@ -67,7 +68,9 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ResponseMessage('Sesión cerrada exitosamente')
+  // Un 204 no debería llevar body, así que se salta el envoltorio del
+  // TransformInterceptor en vez de dejar que le agregue uno igual.
+  @SkipResponseTransform()
   @ApiOperation({ summary: 'Cierra la sesión del usuario autenticado' })
   @ApiResponse({
     status: 204,
