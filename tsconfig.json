@@ -30,11 +30,12 @@
     "noFallthroughCasesInSwitch": false
   },
   "exclude": [
-    "node_modules", 
-    "dist", 
-    "generated", 
-    "claude", 
-    "windfsurfing", 
-    "agents"
+    "node_modules",
+    "dist",
+    "generated",
+    "claude",
+    "windfsurfing",
+    "agents",
+    "src/metadata.ts"
   ]
 }

@@ -29,30 +29,58 @@ export class PriceListService {
       );
     }
 
-    const priceList = await this.prisma.priceList.create({
-      data: {
-        name: dto.name,
-        isActive: dto.isActive ?? true,
-        items: dto.items?.length
-          ? {
-              create: dto.items.map((item) => {
-                if (item.price === null) {
-                  throw new BadRequestException(
-                    `El producto "${item.productId}" requiere un precio para crear la lista`,
-                  );
-                }
+    // Sin este chequeo, un productId inexistente en `items` llega intacto
+    // hasta el nested write de abajo y Prisma lo rechaza con un P2003 (FK
+    // inválida): un PrismaClientKnownRequestError crudo, no una
+    // HttpException, que el HttpExceptionFilter trataría como bug no
+    // anticipado (500 genérico) en vez del 400 de negocio que corresponde
+    // por mandar un producto que no existe.
+    if (dto.items?.length) {
+      await this.assertProductsExist(dto.items.map((item) => item.productId));
+    }
 
-                return {
-                  productId: item.productId,
-                  price: item.price,
-                };
-              }),
-            }
-          : undefined,
-      },
-    });
+    try {
+      const priceList = await this.prisma.priceList.create({
+        data: {
+          name: dto.name,
+          isActive: dto.isActive ?? true,
+          items: dto.items?.length
+            ? {
+                create: dto.items.map((item) => {
+                  if (item.price === null) {
+                    throw new BadRequestException(
+                      `El producto "${item.productId}" requiere un precio para crear la lista`,
+                    );
+                  }
 
-    return new PriceListBasicResponseDto(priceList);
+                  return {
+                    productId: item.productId,
+                    price: item.price,
+                  };
+                }),
+              }
+            : undefined,
+        },
+      });
+
+      return new PriceListBasicResponseDto(priceList);
+    } catch (error) {
+      // P2002: el chequeo de `existing` de arriba cubre el caso normal, pero
+      // entre ese chequeo y este create queda una ventana de carrera (dos
+      // requests casi simultáneas con el mismo nombre). Sin este catch, esa
+      // carrera termina en el mismo 500 genérico que se explica arriba, en
+      // vez del 409 que ya devuelve el chequeo previo en el caso sin carrera.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          `Ya existe una lista de precios con el nombre "${dto.name}"`,
+        );
+      }
+
+      throw error;
+    }
   }
 
   async updatePriceList(
@@ -81,15 +109,31 @@ export class PriceListService {
       }
     }
 
-    const updated = await this.prisma.priceList.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        isActive: dto.isActive,
-      },
-    });
+    try {
+      const updated = await this.prisma.priceList.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          isActive: dto.isActive,
+        },
+      });
 
-    return new PriceListBasicResponseDto(updated);
+      return new PriceListBasicResponseDto(updated);
+    } catch (error) {
+      // Misma ventana de carrera que en createPriceList: el chequeo de
+      // `nameTaken` de arriba no es atómico con este update, así que un
+      // P2002 concurrente todavía puede llegar acá como error crudo.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          `Ya existe una lista de precios con el nombre "${dto.name}"`,
+        );
+      }
+
+      throw error;
+    }
   }
 
   async deletePriceList(id: string): Promise<void> {
@@ -126,6 +170,23 @@ export class PriceListService {
       }
 
       throw error;
+    }
+  }
+
+  private async assertProductsExist(productIds: string[]): Promise<void> {
+    const uniqueIds = [...new Set(productIds)];
+
+    const found = await this.prisma.product.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true },
+    });
+    const foundIds = new Set(found.map((product) => product.id));
+
+    const missing = uniqueIds.filter((id) => !foundIds.has(id));
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Los siguientes productos no existen: ${missing.join(', ')}`,
+      );
     }
   }
 
