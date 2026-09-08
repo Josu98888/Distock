@@ -10,7 +10,12 @@ import {
   ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -24,6 +29,7 @@ import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 
 
 @ApiTags('Usuarios')
+@ApiBearerAuth()
 @Controller('users')
 @UseGuards(RolesGuard)
 export class UsersController {
