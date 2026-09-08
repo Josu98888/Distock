@@ -23,6 +23,7 @@ import { CreatePriceListDto } from './dto/create-price-list.dto';
 import { UpdatePriceListDto } from './dto/update-price-list.dto';
 import { SyncPriceItemsDto } from './dto/sync-price-items.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
+import { SkipResponseTransform } from '@/common/decorators/skip-response-transform.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../generated/prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -105,7 +106,9 @@ export class PriceListController {
   @Patch(':id')
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Lista de precios actualizada exitosamente')
-  @ApiOperation({ summary: 'Actualiza los datos de cabecera de una lista de precios' })
+  @ApiOperation({
+    summary: 'Actualiza los datos de cabecera de una lista de precios',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de precios actualizada exitosamente',
@@ -141,7 +144,9 @@ export class PriceListController {
   @Put(':id/items')
   @Roles(UserRole.ADMIN)
   @ResponseMessage('Precios sincronizados exitosamente')
-  @ApiOperation({ summary: 'Reemplaza el estado completo de precios de una lista' })
+  @ApiOperation({
+    summary: 'Reemplaza el estado completo de precios de una lista',
+  })
   @ApiResponse({
     status: 200,
     description: 'Precios sincronizados exitosamente',
@@ -171,8 +176,11 @@ export class PriceListController {
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  @ResponseMessage('Lista de precios eliminada exitosamente')
   @HttpCode(HttpStatus.NO_CONTENT)
+  // Un 204 no debería llevar body. @ResponseMessage() no tendría ningún
+  // efecto acá aunque se dejara puesto (el interceptor ni llega a leerlo:
+  // ver el motivo abajo), así que se omite para no sugerir lo contrario.
+  @SkipResponseTransform()
   @ApiOperation({ summary: 'Elimina una lista de precios' })
   @ApiResponse({
     status: 204,

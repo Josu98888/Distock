@@ -23,6 +23,7 @@ import { CreateProductBatchDto } from './dto/create-product-batch.dto';
 import { UpdateProductBatchDto } from './dto/update-product-batch.dto';
 import { AdjustBatchStockDto } from './dto/adjust-batch-stock.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
+import { SkipResponseTransform } from '@/common/decorators/skip-response-transform.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../generated/prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -175,8 +176,10 @@ export class ProductBatchesController {
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  @ResponseMessage('Lote eliminado exitosamente')
   @HttpCode(HttpStatus.NO_CONTENT)
+  // Un 204 no debería llevar body, así que se salta el envoltorio del
+  // TransformInterceptor en vez de dejar que le agregue uno igual.
+  @SkipResponseTransform()
   @ApiOperation({ summary: 'Elimina un lote de producto' })
   @ApiResponse({
     status: 204,

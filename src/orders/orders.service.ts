@@ -10,21 +10,16 @@ import { OrderStatus, PaymentStatus, Prisma } from '../generated/prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
 
-// Include estándar para armar el OrderResponseDto completo (tronco + ramas + hojas).
-// No se trae `customer`: el DTO de salida solo expone customerId, así que
-// hidratar el cliente entero en cada lectura sería peso muerto por request.
+
 const ORDER_INCLUDE = {
   items: { include: { batchAllocations: true } },
 } satisfies Prisma.OrderInclude;
 
 // Escala de las columnas de cantidad en el schema: Decimal(12, 3).
-// Normalizar a esta escala evita que la cantidad del item y la suma de sus
-// allocations queden desfasadas por redondeos distintos del lado de la DB.
+
 const QUANTITY_SCALE = 3;
 
 // Transiciones de estado operativo permitidas. CANCELLED solo es alcanzable
-// mientras la mercadería sigue en depósito (antes de DISPATCHED): una vez que
-// salió, cancelar y "devolver stock" ya no refleja la realidad física.
 const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
   CONFIRMED: [OrderStatus.DISPATCHED, OrderStatus.CANCELLED],
@@ -411,13 +406,24 @@ export class OrdersService {
     // deja el pedido huérfano antes de tocarle el estado de cobro.
     await this.customersService.findOne(existing.customerId);
 
-    const order = await this.prisma.order.update({
+    // Mismo guard que updateOrderStatus/cancelOrderAndRestoreStock: el UPDATE
+    // vuelve a exigir en el WHERE que el pedido siga existiendo en este
+    // instante, en vez de confiar ciegamente en el findUnique de arriba.
+    // Sin esto, si la fila desaparece entre el chequeo y la escritura,
+    // Prisma tira un PrismaClientKnownRequestError (P2025) que NO es una
+    // HttpException: el HttpExceptionFilter lo trataría como bug no
+    // anticipado (500 genérico + log de error) en lugar del 404 de negocio
+    // que corresponde acá.
+    const claimed = await this.prisma.order.updateMany({
       where: { id: orderId },
       data: { paymentStatus },
-      include: ORDER_INCLUDE,
     });
 
-    return new OrderResponseDto(order);
+    if (claimed.count === 0) {
+      throw new NotFoundException(`Pedido con id ${orderId} no encontrado`);
+    }
+
+    return this.getOrderById(orderId);
   }
 
   async getOrderById(id: string): Promise<OrderResponseDto> {
