@@ -12,7 +12,12 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ProductBatchesService } from './product-batches.service';
 import { CreateProductBatchDto } from './dto/create-product-batch.dto';
 import { UpdateProductBatchDto } from './dto/update-product-batch.dto';
@@ -23,6 +28,7 @@ import { UserRole } from '../generated/prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('Lotes de producto')
+@ApiBearerAuth()
 @Controller('product-batches')
 @UseGuards(RolesGuard)
 export class ProductBatchesController {
