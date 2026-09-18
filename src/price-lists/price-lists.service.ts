@@ -63,7 +63,7 @@ export class PriceListService {
         },
       });
 
-      return new PriceListBasicResponseDto(priceList);
+      return new PriceListBasicResponseDto(priceList, dto.items?.length ?? 0);
     } catch (error) {
       // P2002: el chequeo de `existing` de arriba cubre el caso normal, pero
       // entre ese chequeo y este create queda una ventana de carrera (dos
@@ -89,6 +89,7 @@ export class PriceListService {
   ): Promise<PriceListBasicResponseDto> {
     const existing = await this.prisma.priceList.findUnique({
       where: { id },
+      include: { _count: { select: { items: true } } },
     });
 
     if (!existing) {
@@ -118,7 +119,7 @@ export class PriceListService {
         },
       });
 
-      return new PriceListBasicResponseDto(updated);
+      return new PriceListBasicResponseDto(updated, existing._count.items);
     } catch (error) {
       // Misma ventana de carrera que en createPriceList: el chequeo de
       // `nameTaken` de arriba no es atómico con este update, así que un
@@ -193,6 +194,7 @@ export class PriceListService {
   async findAll(): Promise<PriceListBasicResponseDto[]> {
     const priceLists = await this.prisma.priceList.findMany({
       orderBy: { name: 'asc' },
+      include: { _count: { select: { items: true } } },
     });
 
     return priceLists.map(

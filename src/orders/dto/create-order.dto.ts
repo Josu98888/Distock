@@ -1,8 +1,10 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsPositive,
   IsUUID,
   ValidateNested,
@@ -54,4 +56,15 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items!: CreateOrderItemDto[];
+
+  /**
+   * El cliente paga de contado al momento del pedido (mostrador, entrega
+   * contra pago, etc.): el pedido nace con paymentStatus PAID y no computa
+   * contra el límite de crédito, porque no genera deuda. Default false
+   * (pedido a cuenta, sí computa).
+   * @example true
+   */
+  @IsOptional()
+  @IsBoolean({ message: 'paidNow debe ser un valor booleano' })
+  paidNow?: boolean;
 }

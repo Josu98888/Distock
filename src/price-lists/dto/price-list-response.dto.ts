@@ -23,6 +23,8 @@ class PriceListItemResponseDto {
   productId: string;
   sku: string;
   name: string;
+  unit: string;
+  costPrice: string;
   basePrice: string;
   price: string; // precio específico de esta lista
 
@@ -30,6 +32,8 @@ class PriceListItemResponseDto {
     this.productId = item.product.id;
     this.sku = item.product.sku;
     this.name = item.product.name;
+    this.unit = item.product.unit;
+    this.costPrice = item.product.costPrice.toString();
     this.basePrice = item.product.basePrice.toString();
     this.price = item.price.toString();
   }

@@ -1,5 +1,5 @@
 import {
-  IsDateString,
+  IsDate,
   IsNotEmpty,
   IsString,
   IsUUID,
@@ -24,6 +24,16 @@ const toQuantityString = ({ value }: TransformFnParams): unknown => {
   return value;
 };
 
+// El frontend manda `expirationDate` como string (ISO 8601). Prisma espera un
+// `Date` para columnas DateTime, así que se transforma acá antes de validar
+// con @IsDate; si el string es inválido se deja pasar tal cual para que
+// @IsDate lo rechace con un mensaje claro en vez de fallar en el ORM.
+const toDate = ({ value }: TransformFnParams): unknown => {
+  if (typeof value !== 'string') return value;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date;
+};
+
 export class CreateProductBatchDto {
   /**
    * Identificador (UUID) del producto al que pertenece el lote.
@@ -46,15 +56,16 @@ export class CreateProductBatchDto {
   batchNumber!: string;
 
   /**
-   * Fecha de vencimiento del lote (ISO 8601).
+   * Fecha de vencimiento del lote (ISO 8601). Llega como string desde el
+   * frontend y se transforma a `Date` (ver `toDate`) antes de validar.
    * @example "2026-12-31"
    */
   @IsNotEmpty({ message: 'La fecha de vencimiento es requerida' })
-  @IsDateString(
-    {},
-    { message: 'La fecha de vencimiento debe ser una fecha válida (ISO 8601)' },
-  )
-  expirationDate!: string;
+  @IsDate({
+    message: 'La fecha de vencimiento debe ser una fecha válida (ISO 8601)',
+  })
+  @Transform(toDate)
+  expirationDate!: Date;
 
   /**
    * Cantidad recibida del lote, hasta 3 decimales. `quantityAvailable` no

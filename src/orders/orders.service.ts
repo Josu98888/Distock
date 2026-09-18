@@ -83,33 +83,38 @@ export class OrdersService {
         createOrderDto.items,
       );
 
-      // Límite de crédito: deuda viva del cliente + este pedido.
+      // Límite de crédito: deuda viva del cliente + este pedido. Se salta
+      // por completo si `paidNow` (el cliente paga de contado en el momento):
+      // el pedido nace PAID y no genera deuda, así que no tiene sentido
+      // contarlo contra el límite.
       // - Se excluyen los CANCELLED: quedan con paymentStatus PENDING para
       //   siempre (cancelar no cobra nada), así que contarlos inventaría
       //   deuda fantasma y bloquearía al cliente por pedidos que no existen.
       // - Se incluyen los PARTIALLY_PAID por su total: el schema no guarda
       //   cuánto se pagó, así que la única lectura financieramente segura es
       //   tratarlos como impagos. Es conservador a propósito.
-      const debtAggregate = await tx.order.aggregate({
-        where: {
-          customerId: customer.id,
-          status: { not: OrderStatus.CANCELLED },
-          paymentStatus: {
-            in: [PaymentStatus.PENDING, PaymentStatus.PARTIALLY_PAID],
+      if (!createOrderDto.paidNow) {
+        const debtAggregate = await tx.order.aggregate({
+          where: {
+            customerId: customer.id,
+            status: { not: OrderStatus.CANCELLED },
+            paymentStatus: {
+              in: [PaymentStatus.PENDING, PaymentStatus.PARTIALLY_PAID],
+            },
           },
-        },
-        _sum: { totalAmount: true },
-      });
-      const previousDebt =
-        debtAggregate._sum.totalAmount ?? new Prisma.Decimal(0);
-      const projectedDebt = previousDebt.plus(totalAmount);
+          _sum: { totalAmount: true },
+        });
+        const previousDebt =
+          debtAggregate._sum.totalAmount ?? new Prisma.Decimal(0);
+        const projectedDebt = previousDebt.plus(totalAmount);
 
-      if (projectedDebt.greaterThan(customer.creditLimit)) {
-        throw new BadRequestException(
-          `El pedido excede el límite de crédito del cliente ${customer.businessName}: ` +
-            `deuda actual ${previousDebt.toFixed(2)} + este pedido ${totalAmount.toFixed(2)} ` +
-            `supera el límite de ${customer.creditLimit.toFixed(2)}`,
-        );
+        if (projectedDebt.greaterThan(customer.creditLimit)) {
+          throw new BadRequestException(
+            `El pedido excede el límite de crédito del cliente ${customer.businessName}: ` +
+              `deuda actual ${previousDebt.toFixed(2)} + este pedido ${totalAmount.toFixed(2)} ` +
+              `supera el límite de ${customer.creditLimit.toFixed(2)}`,
+          );
+        }
       }
 
       // FEFO: recién acá se descuenta stock real, ya con el crédito validado.
@@ -129,7 +134,9 @@ export class OrdersService {
           customerId: customer.id,
           sellerId,
           status: OrderStatus.PENDING,
-          paymentStatus: PaymentStatus.PENDING,
+          paymentStatus: createOrderDto.paidNow
+            ? PaymentStatus.PAID
+            : PaymentStatus.PENDING,
           totalAmount: totalAmount.toFixed(2),
           totalCost: totalCost.toFixed(2),
           grossMargin: grossMargin.toFixed(2),

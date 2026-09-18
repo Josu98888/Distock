@@ -27,7 +27,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 
-
 @ApiTags('Usuarios')
 @ApiBearerAuth()
 @Controller('users')
