@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -22,6 +23,8 @@ import { ResponseMessage } from '@/common/decorators/response-message.decorator'
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../generated/prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Clientes')
 @ApiBearerAuth()
@@ -31,7 +34,7 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SELLER)
   @ResponseMessage('Cliente creado exitosamente')
   @ApiOperation({ summary: 'Crea un nuevo cliente' })
   @ApiResponse({
@@ -48,7 +51,7 @@ export class CustomersController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN)',
+    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
   })
   create(@Body() createCustomerDto: CreateCustomerDto) {
     return this.customersService.create(createCustomerDto);
@@ -102,8 +105,12 @@ export class CustomersController {
     return this.customersService.findByCuit(cuit);
   }
 
+  /**
+   * Endpoint mixto: ADMIN y SELLER pueden ver cualquier cliente, CLIENT
+   * solo el propio (currentUser.customerId, extraído del JWT).
+   */
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN, UserRole.SELLER, UserRole.CLIENT)
   @ResponseMessage('Cliente encontrado exitosamente')
   @ApiOperation({ summary: 'Busca un cliente por su id' })
   @ApiResponse({
@@ -116,18 +123,22 @@ export class CustomersController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+    description: 'Un CLIENT intenta acceder a un cliente que no es el propio',
   })
   @ApiResponse({
     status: 404,
     description: 'No existe un cliente con ese id',
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    this.assertIsNotClientOfSomeoneElse(currentUser, id);
     return this.customersService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SELLER)
   @ResponseMessage('Cliente actualizado exitosamente')
   @ApiOperation({ summary: 'Actualiza los datos de un cliente' })
   @ApiResponse({
@@ -144,7 +155,7 @@ export class CustomersController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN)',
+    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
   })
   @ApiResponse({
     status: 404,
@@ -203,5 +214,24 @@ export class CustomersController {
   })
   reactivate(@Param('id', ParseUUIDPipe) id: string) {
     return this.customersService.reactivate(id);
+  }
+
+  /**
+   * ADMIN y SELLER pasan siempre. Un CLIENT solo si el :id de la ruta
+   * coincide con su propio customerId (extraído del JWT, nunca del
+   * param en sí, para que no se pueda "mentir" el id propio).
+   */
+  private assertIsNotClientOfSomeoneElse(
+    currentUser: JwtPayload,
+    targetId: string,
+  ) {
+    if (
+      currentUser.role === UserRole.CLIENT &&
+      currentUser.customerId !== targetId
+    ) {
+      throw new ForbiddenException(
+        'No tenés permiso para acceder a este cliente',
+      );
+    }
   }
 }

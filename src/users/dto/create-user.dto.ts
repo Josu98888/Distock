@@ -65,6 +65,6 @@ export class CreateUserDto {
    * @example "SELLER"
    */
   @IsNotEmpty({ message: 'El rol es requerido' })
-  @IsEnum(UserRole, { message: 'El rol debe ser ADMIN o SELLER' })
+  @IsEnum(UserRole, { message: 'El rol debe ser ADMIN, SELLER o CLIENT' })
   role!: UserRole;
 }

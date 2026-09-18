@@ -18,10 +18,16 @@ import {
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import {
+  ProductPublicResponseDto,
+  ProductResponseDto,
+} from './dto/product-response.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../generated/prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Productos')
 @ApiBearerAuth()
@@ -55,7 +61,7 @@ export class ProductsController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN, UserRole.SELLER, UserRole.CLIENT)
   @ResponseMessage('Productos encontrados exitosamente')
   @ApiOperation({ summary: 'Lista los productos' })
   @ApiResponse({
@@ -68,10 +74,18 @@ export class ProductsController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+    description: 'El usuario no tiene el rol requerido (ADMIN, SELLER o CLIENT)',
   })
-  findAll(@Query('includeInactive') includeInactive?: string) {
-    return this.productsService.findAll(includeInactive === 'true');
+  async findAll(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query('includeInactive') includeInactive?: string,
+    @Query('inStockOnly') inStockOnly?: string,
+  ) {
+    const products = await this.productsService.findAll(
+      includeInactive === 'true',
+      inStockOnly === 'true',
+    );
+    return this.hideCostForClient(currentUser, products);
   }
 
   /**
@@ -79,7 +93,7 @@ export class ProductsController {
    * segmento literal y no un id: el SKU no es UUID y no lleva ParseUUIDPipe.
    */
   @Get('sku/:sku')
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN, UserRole.SELLER, UserRole.CLIENT)
   @ResponseMessage('Producto encontrado exitosamente')
   @ApiOperation({ summary: 'Busca un producto por su SKU' })
   @ApiResponse({
@@ -92,18 +106,22 @@ export class ProductsController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+    description: 'El usuario no tiene el rol requerido (ADMIN, SELLER o CLIENT)',
   })
   @ApiResponse({
     status: 404,
     description: 'No existe un producto con ese SKU',
   })
-  findBySku(@Param('sku') sku: string) {
-    return this.productsService.findBySku(sku);
+  async findBySku(
+    @Param('sku') sku: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    const product = await this.productsService.findBySku(sku);
+    return this.hideCostForClient(currentUser, product);
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN, UserRole.SELLER, UserRole.CLIENT)
   @ResponseMessage('Producto encontrado exitosamente')
   @ApiOperation({ summary: 'Busca un producto por su id' })
   @ApiResponse({
@@ -116,14 +134,18 @@ export class ProductsController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+    description: 'El usuario no tiene el rol requerido (ADMIN, SELLER o CLIENT)',
   })
   @ApiResponse({
     status: 404,
     description: 'No existe un producto con ese id',
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.productsService.findOne(id);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    const product = await this.productsService.findOne(id);
+    return this.hideCostForClient(currentUser, product);
   }
 
   @Patch(':id')
@@ -203,5 +225,20 @@ export class ProductsController {
   })
   reactivate(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.reactivate(id);
+  }
+
+  /**
+   * costPrice es información de costo/margen interna: un CLIENT nunca debe
+   * verla, aunque sí pueda listar y consultar el catálogo de productos.
+   */
+  private hideCostForClient<T extends ProductResponseDto | ProductResponseDto[]>(
+    currentUser: JwtPayload,
+    products: T,
+  ): T | ProductPublicResponseDto | ProductPublicResponseDto[] {
+    if (currentUser.role !== UserRole.CLIENT) return products;
+
+    return Array.isArray(products)
+      ? products.map((product) => new ProductPublicResponseDto(product))
+      : new ProductPublicResponseDto(products);
   }
 }

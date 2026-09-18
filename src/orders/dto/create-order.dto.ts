@@ -40,12 +40,14 @@ export class CreateOrderItemDto {
 
 export class CreateOrderDto {
   /**
-   * Identificador (UUID) del cliente que realiza el pedido.
+   * Identificador (UUID) del cliente que realiza el pedido. Requerido para
+   * ADMIN/SELLER. Se ignora si lo envía un CLIENT: el service siempre fuerza
+   * su propio customerId (resuelto desde el JWT), nunca este valor.
    * @example "3fa85f64-5717-4562-b3fc-2c963f66afa6"
    */
-  @IsNotEmpty({ message: 'El customerId es requerido' })
+  @IsOptional()
   @IsUUID('4', { message: 'El customerId debe ser un UUID válido' })
-  customerId!: string;
+  customerId?: string;
 
   /**
    * Líneas del pedido, al menos un item.

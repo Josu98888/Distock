@@ -17,6 +17,8 @@ export class CustomerResponseDto {
   isActive: boolean;
   priceListId: string;
   priceList: PriceListBasicResponseDto;
+  userId: string | null;
+  assignedSellerId: string | null;
   createdAt: Date;
 
   constructor(customer: CustomerWithDecimals) {
@@ -29,6 +31,8 @@ export class CustomerResponseDto {
     this.isActive = customer.isActive;
     this.priceListId = customer.priceListId;
     this.priceList = new PriceListBasicResponseDto(customer.priceList);
+    this.userId = customer.userId;
+    this.assignedSellerId = customer.assignedSellerId;
     this.createdAt = customer.createdAt;
   }
 }

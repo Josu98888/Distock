@@ -6,6 +6,8 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: UserRole;
+  /** Solo presente si el usuario es CLIENT y tiene un Customer vinculado. */
+  customerId?: string;
   iat: number;
   exp: number;
 }

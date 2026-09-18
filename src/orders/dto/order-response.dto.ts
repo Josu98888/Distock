@@ -78,6 +78,8 @@ export class OrderItemResponseDto {
 export class OrderResponseDto {
   id: string;
   customerId: string;
+  sellerId: string;
+  clientId: string | null;
   status: string;
   paymentStatus: string;
   totalAmount: string;
@@ -87,6 +89,8 @@ export class OrderResponseDto {
   constructor(order: OrderWithDecimals) {
     this.id = order.id;
     this.customerId = order.customerId;
+    this.sellerId = order.sellerId;
+    this.clientId = order.clientId;
     this.status = order.status;
     this.paymentStatus = order.paymentStatus;
     this.totalAmount = order.totalAmount.toString();

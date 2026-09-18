@@ -1,5 +1,6 @@
 import {
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -88,4 +89,14 @@ export class CreateProductDto {
   })
   @Transform(toMoneyString)
   basePrice!: string;
+
+  /**
+   * Categoría libre para agrupar/filtrar el producto en el catálogo.
+   * @example "Almacén"
+   */
+  @IsOptional()
+  @IsString({ message: 'La categoría debe ser una cadena de texto' })
+  @MaxLength(60, { message: 'La categoría no puede superar los 60 caracteres' })
+  @Transform(trim)
+  category?: string;
 }

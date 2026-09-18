@@ -9,6 +9,7 @@ import {
   Patch,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -34,7 +35,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN, UserRole.SELLER, UserRole.CLIENT)
   @ResponseMessage('Pedido creado exitosamente')
   @ApiOperation({ summary: 'Crea un nuevo pedido' })
   @ApiResponse({
@@ -51,17 +52,17 @@ export class OrdersController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+    description: 'El usuario no tiene el rol requerido (ADMIN, SELLER o CLIENT)',
   })
   create(
-    @CurrentUser('sub') sellerId: string,
+    @CurrentUser() currentUser: JwtPayload,
     @Body() createOrderDto: CreateOrderDto,
   ) {
-    return this.ordersService.createOrder(sellerId, createOrderDto);
+    return this.ordersService.createOrder(currentUser, createOrderDto);
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN, UserRole.SELLER, UserRole.CLIENT)
   @ResponseMessage('Pedidos encontrados exitosamente')
   @ApiOperation({ summary: 'Lista los pedidos' })
   @ApiResponse({
@@ -74,20 +75,35 @@ export class OrdersController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+    description: 'El usuario no tiene el rol requerido (ADMIN, SELLER o CLIENT)',
   })
   findAll(
     @CurrentUser() currentUser: JwtPayload,
     @Query('sellerId') sellerId?: string,
   ) {
+    // CLIENT: siempre sus propios pedidos, filtrados por customerId (nunca
+    // por sellerId: un pedido self-service puede tener otro vendedor).
+    // SELLER: siempre los propios (por sellerId), sin poder pedir los de otro.
+    // ADMIN: puede filtrar por cualquier sellerId, o ver todos si no manda uno.
+    if (currentUser.role === UserRole.CLIENT) {
+      if (!currentUser.customerId) {
+        throw new ForbiddenException(
+          'Tu cuenta no está asociada a ningún cliente',
+        );
+      }
+      return this.ordersService.findAllOrders({
+        customerId: currentUser.customerId,
+      });
+    }
+
     const effectiveSellerId =
       currentUser.role === UserRole.ADMIN ? sellerId : currentUser.sub;
 
-    return this.ordersService.findAllOrders(effectiveSellerId);
+    return this.ordersService.findAllOrders({ sellerId: effectiveSellerId });
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN, UserRole.SELLER, UserRole.CLIENT)
   @ResponseMessage('Pedido encontrado exitosamente')
   @ApiOperation({ summary: 'Busca un pedido por su id' })
   @ApiResponse({
@@ -100,14 +116,28 @@ export class OrdersController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN o SELLER)',
+    description: 'Un CLIENT intenta acceder a un pedido que no es propio',
   })
   @ApiResponse({
     status: 404,
     description: 'No existe un pedido con ese id',
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.ordersService.getOrderById(id);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    const order = await this.ordersService.getOrderById(id);
+
+    if (
+      currentUser.role === UserRole.CLIENT &&
+      order.customerId !== currentUser.customerId
+    ) {
+      throw new ForbiddenException(
+        'No tenés permiso para acceder a este pedido',
+      );
+    }
+
+    return order;
   }
 
   /** Logística inversa: depósito confirma/despacha/entrega o cancela. */
