@@ -1,14 +1,21 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomersService } from '../customers/customers.service';
-import { OrderStatus, PaymentStatus, Prisma } from '../generated/prisma/client';
+import {
+  OrderStatus,
+  PaymentStatus,
+  Prisma,
+  UserRole,
+} from '../generated/prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
+import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 
 
 const ORDER_INCLUDE = {
@@ -52,23 +59,57 @@ export class OrdersService {
   // precio, el costo y el stock tienen que verse (y bloquearse) como una
   // sola unidad atómica, o el pedido no se crea.
   async createOrder(
-    sellerId: string,
+    currentUser: JwtPayload,
     createOrderDto: CreateOrderDto,
   ): Promise<OrderResponseDto> {
+    const isClient = currentUser.role === UserRole.CLIENT;
+
+    // Un CLIENT solo puede pedir para sí mismo: se ignora cualquier
+    // customerId que venga en el body y se fuerza el propio, resuelto desde
+    // el JWT en el login (nunca desde algo que el cliente pueda mandar).
+    if (isClient && !currentUser.customerId) {
+      throw new ForbiddenException(
+        'Tu cuenta no está asociada a ningún cliente',
+      );
+    }
+    if (!isClient && !createOrderDto.customerId) {
+      throw new BadRequestException('El customerId es requerido');
+    }
+    const targetCustomerId = isClient
+      ? currentUser.customerId!
+      : createOrderDto.customerId!;
+
     const order = await this.prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({
-        where: { id: createOrderDto.customerId },
+        where: { id: targetCustomerId },
       });
 
       if (!customer) {
         throw new BadRequestException(
-          `El cliente ${createOrderDto.customerId} no existe`,
+          `El cliente ${targetCustomerId} no existe`,
         );
       }
       if (!customer.isActive) {
         throw new BadRequestException(
           `El cliente ${customer.businessName} está inactivo`,
         );
+      }
+
+      // Self-service: siempre tiene que haber un vendedor real detrás del
+      // pedido, nunca el propio cliente. Se resuelve desde el vendedor de
+      // cuenta asignado al Customer, no desde quien está logueado.
+      let sellerId: string;
+      let clientId: string | undefined;
+      if (isClient) {
+        if (!customer.assignedSellerId) {
+          throw new BadRequestException(
+            `El cliente ${customer.businessName} no tiene un vendedor de cuenta asignado; contactá a un administrador`,
+          );
+        }
+        sellerId = customer.assignedSellerId;
+        clientId = currentUser.sub;
+      } else {
+        sellerId = currentUser.sub;
       }
 
       // Precios y costos: resueltos ahora, antes de tocar stock, para no
@@ -133,6 +174,7 @@ export class OrdersService {
         data: {
           customerId: customer.id,
           sellerId,
+          clientId,
           status: OrderStatus.PENDING,
           paymentStatus: createOrderDto.paidNow
             ? PaymentStatus.PAID
@@ -446,9 +488,15 @@ export class OrdersService {
     return new OrderResponseDto(order);
   }
 
-  async findAllOrders(sellerId?: string): Promise<OrderResponseDto[]> {
+  async findAllOrders(filter: {
+    sellerId?: string;
+    customerId?: string;
+  }): Promise<OrderResponseDto[]> {
     const orders = await this.prisma.order.findMany({
-      where: sellerId ? { sellerId } : undefined,
+      where: {
+        sellerId: filter.sellerId,
+        customerId: filter.customerId,
+      },
       orderBy: { createdAt: 'desc' },
       include: ORDER_INCLUDE,
     });

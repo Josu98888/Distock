@@ -34,8 +34,15 @@ import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  /**
+   * ADMIN puede crear usuarios con cualquier rol. Un SELLER también puede
+   * dar de alta usuarios, pero únicamente con rol CLIENT (ver
+   * `assertSellerCanOnlyCreateClients`): no puede crearse a sí mismo ni a
+   * otro como ADMIN o SELLER (eso sería escalar privilegios o darse
+   * colegas sin supervisión de un ADMIN).
+   */
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SELLER)
   @ResponseMessage('Usuario creado exitosamente')
   @ApiOperation({ summary: 'Crea un nuevo usuario' })
   @ApiResponse({
@@ -52,9 +59,14 @@ export class UsersController {
   })
   @ApiResponse({
     status: 403,
-    description: 'El usuario no tiene el rol requerido (ADMIN)',
+    description:
+      'El usuario no tiene el rol requerido (ADMIN o SELLER), o un SELLER intentó crear un usuario con un rol distinto de CLIENT',
   })
-  create(@Body() createUserDto: CreateUserDto) {
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    this.assertSellerCanOnlyCreateClients(currentUser, createUserDto);
     return this.usersService.create(createUserDto);
   }
 
@@ -234,6 +246,22 @@ export class UsersController {
     if (!isAdmin && !isOwner) {
       throw new ForbiddenException(
         'No tenés permiso para acceder a este recurso',
+      );
+    }
+  }
+
+  /**
+   * Un SELLER puede dar de alta usuarios, pero solo con rol CLIENT (cuentas
+   * de acceso para sus clientes): no debe poder crear una cuenta ADMIN
+   * (escalar privilegios) ni otra cuenta SELLER (eso lo maneja un ADMIN).
+   */
+  private assertSellerCanOnlyCreateClients(
+    currentUser: JwtPayload,
+    dto: CreateUserDto,
+  ): void {
+    if (currentUser.role === UserRole.SELLER && dto.role !== UserRole.CLIENT) {
+      throw new ForbiddenException(
+        'Un vendedor solo puede crear usuarios con rol CLIENT',
       );
     }
   }

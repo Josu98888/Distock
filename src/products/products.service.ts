@@ -31,15 +31,24 @@ export class ProductsService {
         unit: dto.unit,
         costPrice: dto.costPrice,
         basePrice: dto.basePrice,
+        category: dto.category,
       },
     });
 
     return new ProductResponseDto(product);
   }
 
-  async findAll(includeInactive = false): Promise<ProductResponseDto[]> {
+  async findAll(
+    includeInactive = false,
+    inStockOnly = false,
+  ): Promise<ProductResponseDto[]> {
     const products = await this.prisma.product.findMany({
-      where: includeInactive ? undefined : { isActive: true },
+      where: {
+        isActive: includeInactive ? undefined : true,
+        // "Con stock" = tiene al menos un lote con cantidad disponible > 0.
+        // No expone el detalle del lote, solo filtra qué productos entran.
+        batches: inStockOnly ? { some: { quantityAvailable: { gt: 0 } } } : undefined,
+      },
       orderBy: { name: 'asc' },
     });
 
@@ -80,6 +89,7 @@ export class ProductsService {
           unit: dto.unit,
           costPrice: dto.costPrice !== undefined ? dto.costPrice : undefined,
           basePrice: dto.basePrice !== undefined ? dto.basePrice : undefined,
+          category: dto.category,
         },
       });
       return new ProductResponseDto(product);

@@ -37,7 +37,12 @@ export class AuthService {
     const passwordOk = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordOk) throw new UnauthorizedException('Credenciales inválidas');
 
-    const tokens = await this.generarTokens(user.id, user.email, user.role);
+    const tokens = await this.generarTokens(
+      user.id,
+      user.email,
+      user.role,
+      user.customerAccount?.id,
+    );
 
     return {
       ...tokens,
@@ -65,7 +70,12 @@ export class AuthService {
       throw new ForbiddenException('Acceso denegado');
     }
 
-    return this.generarTokens(user.id, user.email, user.role);
+    return this.generarTokens(
+      user.id,
+      user.email,
+      user.role,
+      user.customerAccount?.id,
+    );
   }
 
   /**
@@ -78,8 +88,13 @@ export class AuthService {
   /**
    * Firma el par de tokens y guarda el hash del refresh en la base.
    */
-  private async generarTokens(userId: string, email: string, role: UserRole) {
-    const payload = { sub: userId, email, role };
+  private async generarTokens(
+    userId: string,
+    email: string,
+    role: UserRole,
+    customerId?: string,
+  ) {
+    const payload = { sub: userId, email, role, ...(customerId && { customerId }) };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload),

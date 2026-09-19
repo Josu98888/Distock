@@ -20,6 +20,7 @@ datasource db {
 enum UserRole {
   ADMIN
   SELLER
+  CLIENT
 }
 
 enum OrderStatus {
@@ -52,7 +53,17 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  orders Order[] @relation("SellerOrders")
+  orders       Order[]   @relation("SellerOrders")
+  clientOrders Order[]   @relation("ClientOrders")
+
+  // Cuenta de acceso de un cliente (rol CLIENT): vincula este User a
+  // exactamente un Customer, para que solo pueda ver/operar sus propios datos.
+  customerAccount Customer? @relation("CustomerAccount")
+
+  // Cartera de clientes asignados a este User como vendedor de cuenta.
+  // Se usa para resolver el sellerId de los pedidos que el cliente
+  // crea por sí mismo (self-service): siempre hay un vendedor real detrás.
+  assignedCustomers Customer[] @relation("AssignedSeller")
 
   @@map("users")
 }
@@ -76,12 +87,25 @@ model Customer {
   priceListId String    @map("price_list_id")
   priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Restrict)
 
+  // Cuenta de acceso del cliente: User con rol CLIENT que puede loguearse
+  // y operar únicamente sobre este Customer. Nullable: no todo cliente
+  // tiene (o necesita) acceso a la plataforma.
+  userId String? @unique @map("user_id")
+  user   User?   @relation("CustomerAccount", fields: [userId], references: [id], onDelete: SetNull)
+
+  // Vendedor de cuenta asignado. Se usa para completar el sellerId de los
+  // pedidos que el propio cliente crea (self-service), así siempre hay un
+  // vendedor real detrás del pedido.
+  assignedSellerId String? @map("assigned_seller_id")
+  assignedSeller   User?   @relation("AssignedSeller", fields: [assignedSellerId], references: [id], onDelete: SetNull)
+
   orders Order[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([priceListId])
+  @@index([assignedSellerId])
   @@map("customers")
 }
 
@@ -138,6 +162,10 @@ model Product {
   costPrice Decimal @map("cost_price") @db.Decimal(12, 2) // referencia para margen
   basePrice Decimal @map("base_price") @db.Decimal(12, 2) // fallback si no hay PriceListItem
 
+  // Agrupación libre para filtrar el catálogo (ej: "Lácteos", "Almacén"). Nullable:
+  // el dato se va cargando de a poco, no todo producto lo tiene todavía.
+  category String? @map("category")
+
   isActive Boolean @default(true) @map("is_active")
 
   batches    ProductBatch[]
@@ -191,6 +219,11 @@ model Order {
   sellerId String @map("seller_id")
   seller   User   @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Restrict)
 
+  // Cuenta CLIENT que creó el pedido por sí misma (self-service). Null
+  // cuando el pedido lo ingresa un ADMIN/SELLER en nombre del cliente.
+  clientId String? @map("client_id")
+  client   User?   @relation("ClientOrders", fields: [clientId], references: [id], onDelete: SetNull)
+
   status        OrderStatus   @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
 
@@ -211,6 +244,7 @@ model Order {
   @@index([customerId, paymentStatus])
   @@index([paymentStatus]) // para vistas admin de cta. cte. pendiente sin filtrar por cliente
   @@index([sellerId])      // dashboard de ventas por vendedor
+  @@index([clientId])      // historial de pedidos self-service de un cliente
   @@index([status])        // cola operativa: pedidos a confirmar/despachar
   @@map("orders")
 }

@@ -56,12 +56,16 @@ export class UsersService {
   }
 
   async findByEmailWithPassword(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
+    return this.prisma.user.findUnique({
+      where: { email },
+      include: { customerAccount: { select: { id: true } } },
+    });
   }
 
   async findByIdWithRefreshToken(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
+      include: { customerAccount: { select: { id: true } } },
     });
   }
 

@@ -112,4 +112,26 @@ export class CreateCustomerDto {
   @IsUUID('4', { message: 'La lista de precios debe ser un UUID válido' })
   @Transform(trim)
   priceListId!: string;
+
+  /**
+   * Identificador (UUID) del User (rol CLIENT) que tendrá acceso a la
+   * plataforma para operar como este cliente. Opcional: no todo cliente
+   * necesita cuenta de acceso.
+   * @example "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+   */
+  @IsOptional()
+  @IsUUID('4', { message: 'El userId debe ser un UUID válido' })
+  @Transform(trim)
+  userId?: string;
+
+  /**
+   * Identificador (UUID) del User (rol ADMIN o SELLER) asignado como
+   * vendedor de cuenta de este cliente. Se usa para completar el vendedor
+   * de los pedidos que el propio cliente cree.
+   * @example "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+   */
+  @IsOptional()
+  @IsUUID('4', { message: 'El assignedSellerId debe ser un UUID válido' })
+  @Transform(trim)
+  assignedSellerId?: string;
 }
